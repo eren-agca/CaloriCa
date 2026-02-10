@@ -1,6 +1,6 @@
 import {View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, Modal, TextInput} from 'react-native';
-import {useState, useEffect} from 'react';
-import {useRouter} from 'expo-router';
+import {useState, useEffect , useCallback} from 'react';
+import {useRouter , useFocusEffect} from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Route } from 'expo-router/build/Route';
 
@@ -161,9 +161,23 @@ export default function HomeScreen(){
     if (suBardak > 0){
       setSuBardak(suBardak - 1);
     }
-  }
+  };
 
-  const hedef = 2000;
+  const hedefYukle = async () => {
+    try {
+      const data = await AsyncStorage.getItem('profil');
+      if (data) {
+        const profil = JSON.parse(data);
+        if(profil.hedefKalori) {
+          setHedef(parseInt(profil.hedefKalori));
+        }
+      }
+    } catch (error) {
+      console.log('Hedef Yukleme Hatasi: ', error);
+    }
+  };
+
+  const [hedef,setHedef] = useState(2000);
   const yuzde = Math.round(Math.min((kaloriler / hedef) * 100,100));
   
   // sayfa acilinca verileri yukleme
@@ -176,6 +190,11 @@ useEffect(() => {
     verileriKaydet(ypilenYemekler,kaloriler);
   }
  },[ypilenYemekler,kaloriler,suBardak]);
+
+ useFocusEffect(
+  useCallback(() => {
+    hedefYukle();
+  }, []));
 
 
   return(
