@@ -1,35 +1,105 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
-
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { View, Text, StyleSheet } from 'react-native';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: '#e74c3c',
+        tabBarInactiveTintColor: '#95a5a6',
         headerShown: false,
-        tabBarButton: HapticTab,
+        tabBarStyle: {
+          backgroundColor: '#ffffff',
+          borderTopWidth: 0,
+          height: 85,
+          paddingTop: 10,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.1,
+          shadowRadius: 5,
+          elevation: 10,
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+          marginTop: 3,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 5,
+          borderRightWidth: 1,
+          borderRightColor: '#e8e8e8',
+        },
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Ana Sayfa',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon emoji="🏠" focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="camera"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Kamera',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon emoji="📸" focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="stats"
+        options={{
+          title: 'İstatistik',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon emoji="📊" focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profil',
+          href: null,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon emoji="👤" focused={focused} />
+          ),
+          tabBarItemStyle: {
+            paddingVertical: 5,
+            borderRightWidth: 0,
+          },
+          
         }}
       />
     </Tabs>
   );
 }
+
+function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
+  return (
+    <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
+      <Text style={styles.emoji}>{emoji}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  iconContainer: {
+    width: 70,
+    height: 65,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  iconContainerActive: {
+    backgroundColor: '#ffe8e6',
+  },
+  emoji: {
+    fontSize: 22,
+  },
+  tabText: {
+    fontSize: 15,
+  },
+});
