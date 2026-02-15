@@ -72,6 +72,19 @@ export default function TabLayout() {
           
         }}
       />
+      <Tabs.Screen
+        name="recipes"
+        options={{
+          title:'Tarifler',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon emoji="📖" focused={focused} />
+          ),
+          tabBarItemStyle: {
+            paddingVertical: 5,
+            borderRightWidth: 0,
+          },
+        }}
+      />
     </Tabs>
   );
 }

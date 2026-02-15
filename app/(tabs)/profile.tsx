@@ -79,11 +79,10 @@ useEffect(() => {
   }, [boy,kilo]);
   
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollContent}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
+        <View style={styles.headerSpacer}/>
         <Text style={styles.headerTitle}>
           {duzenlemeMode ? 'Profili Duzenle' : 'Profil'}
         </Text>
@@ -180,6 +179,11 @@ useEffect(() => {
       </TouchableOpacity>
     </ScrollView>
 
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <Text style={styles.backIcon}>←</Text>
+      </TouchableOpacity>
+    </View>
+
   );
 }
 
@@ -197,7 +201,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     width: '100%',
   },
+  scrollContent: {
+    flex: 1,
+  },
   backButton: {
+    position: 'absolute',
+    top: 75,
+    left: 20,
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -208,7 +218,7 @@ const styles = StyleSheet.create({
     shadowOffset: {width: 0 , height: 2},
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    position: 'fixed',
+    zIndex: 10,
   },
   backIcon: {
     fontSize: 24,
@@ -304,9 +314,12 @@ const styles = StyleSheet.create({
    },
    kaydetButton: {
     backgroundColor: '#e74c3c',
-    padding: 18,
+    padding: 15,
+    width: 130,
     borderRadius: 12,
+    alignSelf: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 25,
    },
    kaydetText: {

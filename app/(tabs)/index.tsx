@@ -49,6 +49,14 @@ export default function HomeScreen(){
     await AsyncStorage.setItem('kaloriler',kalorilerData.toString());
     await AsyncStorage.setItem('suBardak', suBardak.toString());
     await AsyncStorage.setItem('sonKayitTarihi',new Date().toDateString());
+    const bugun = new Date().toISOString().split('T')[0];
+    const haftalikData = await AsyncStorage.getItem('haftalikIstatistik');
+    let haftalik = haftalikData ? JSON.parse(haftalikData) : {};
+    haftalik[bugun] = {
+      kalori : kalorilerData,
+      su : suBardak,
+    };
+    await AsyncStorage.setItem('haftalikIstatistik', JSON.stringify(haftalik));
   }catch (error) {
     console.log('Kaydetme Hatasi: ', error);
   }
@@ -129,7 +137,7 @@ export default function HomeScreen(){
     if (yemek.adet > 1){
       const yeniListe = ypilenYemekler.map(y =>
         y.id === yemek.id && y.gramaj === yemek.gramaj
-        ? {...y, adet: -1, kalori: y.kalori - birPorsiyonKalori} : y 
+        ? {...y, adet: y.adet - 1, kalori: y.kalori - birPorsiyonKalori} : y 
       );
       setypilenYemekler(yeniListe);
     } else {
