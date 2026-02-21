@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image , TextInput , KeyboardAvoidingView , Platform , TouchableWithoutFeedback, Keyboard , ScrollView} from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useState, useRef } from 'react';
 
@@ -7,6 +7,7 @@ export default function CameraScreen(){
     // Typelar
     type AnalizSonucu = {
         yemekAdi: string;
+        porsiyon: number;
         kalori: number;
         protein: number;
         karbonhidrat: number;
@@ -15,7 +16,8 @@ export default function CameraScreen(){
 
 
     // useState vs.
-
+    const [duzeltmeMode, setDuzeltmeMode] = useState(false);
+    const [duzeltmeText, setDuzeltmeText] = useState('');
     const [permission, requestPermission] = useCameraPermissions();
     const [fotograf,setFotograf] = useState<string | null>(null);
     const kameraRef = useRef<CameraView>(null);
@@ -53,7 +55,7 @@ export default function CameraScreen(){
             const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
             
             const yanit = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
                 {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -61,7 +63,27 @@ export default function CameraScreen(){
                         contents: [{
                             parts: [
                                 {
-                                    text: 'Bu fotoğraftaki yemeği analiz et. Sadece şu formatta JSON döndür,başka hiçbir şey yazma: {"yemekAdi": "...", "kalori": 0, "protein": 0, "karbonhidrat": 0, "yag": 0}. Değerler yaklaşık ve porsiyon başına olsun. Gram cinsinden değil, sayısal değer olsun.'
+                                    text: `Sen bir profesyonel beslenme uzmanı ve gıda tanıma uzmanısın. Türk mutfağı dahil dünya mutfaklarını çok iyi biliyorsun.
+
+Bu fotoğraftaki yemeği dikkatli bir şekilde analiz et.
+
+Kurallar:
+- Yemeğin tam ve doğru adını Türkçe olarak yaz (örneğin: poğaça, lahmacun, mercimek çorbası)
+- Benzer görünen yemekleri karıştırma (poğaça ≠ pişi, simit ≠ açma, börek ≠ gözleme)
+- Fotoğraftaki yemeğin görünüşüne, şekline, rengine, dokusuna ve boyutuna dikkat et
+- Porsiyon miktarını fotoğraftaki büyüklüğe göre tahmin et (gram cinsinden)
+- Eğer yiyecek/içecek yarım kalmışsa, bir kısmı yenmiş/içilmişse veya eksikse, KALAN miktarı tahmin et (dolu halini değil). Örneğin bardağın yarısı içilmiş bir kahve için 200ml değil ~100ml yaz
+- Besin değerlerini o porsiyon miktarına göre hesapla
+- Eğer fotoğrafta yemek yoksa veya tanıyamıyorsan yemekAdi olarak "Tanımlanamadı" yaz
+
+Sadece aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
+{"yemekAdi": "...", "porsiyon": 0, "kalori": 0, "protein": 0, "karbonhidrat": 0, "yag": 0}
+
+- porsiyon: gram cinsinden tahmini porsiyon miktarı (örnek: 150)
+- kalori: kcal cinsinden (örnek: 280)
+- protein: gram cinsinden (örnek: 12)
+- karbonhidrat: gram cinsinden (örnek: 35)
+- yag: gram cinsinden (örnek: 10)`
                                 },
                                 {
                                     inlineData: {
@@ -94,6 +116,52 @@ export default function CameraScreen(){
             setYukleniyor(false);
         }
     };
+
+    const yemekDuzelt = async () => {
+        if (!duzeltmeText.trim()) return;
+
+        setYukleniyor(true);
+        setDuzeltmeMode(false);
+
+        try {
+            const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+            const porsiyon = analizSonucu?.porsiyon || 100;
+
+            const yanit = await fetch(  
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: `Sen bir beslenme uzmanısın. Kullanıcı bir yiyecek/içecek adı veriyor. Bu yiyeceğin ${porsiyon} gramlık porsiyon için besin değerlerini hesapla.
+
+Yiyecek: ${duzeltmeText}
+
+Sadece aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
+{"yemekAdi": "${duzeltmeText}", "porsiyon": ${porsiyon}, "kalori": 0, "protein": 0, "karbonhidrat": 0, "yag": 0}`
+                        }]
+                    }]
+                })
+            }
+        );
+
+        const data = await yanit.json();
+        if(data.error) {
+            console.log('Duzeltme Hatasi: ', data.error.message);
+            return;
+        }
+        const jsonText = data.candidates [0].content.parts[0].text;
+        const temiz = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const sonuc = JSON.parse(temiz);
+        setAnalizSonucu(sonuc);
+        } catch (error) {
+            console.log('Duzeltme Hatasi: ', error);
+        } finally {
+            setYukleniyor(false);
+        }
+    };
     // Kamera izin durumlari
     if(!permission){
         return <View style={styles.container}><Text>Yukleniyor...</Text></View>;
@@ -111,7 +179,13 @@ export default function CameraScreen(){
     }
     if(fotograf) {
         return(
-            <View style={styles.onizlemeContainer}>
+            <KeyboardAvoidingView 
+                style={styles.onizlemeContainer}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={{flex: 1}}>
+            <ScrollView style={{flex: 1}} contentContainerStyle={styles.onizlemeScroll}>
                 <Image source={{uri: fotograf}} style={styles.onizleme}/>
                {yukleniyor && (
                 <Text style={styles.yukleniyorText}>Analiz ediliyor...</Text>
@@ -119,23 +193,44 @@ export default function CameraScreen(){
 
                {analizSonucu && (
                 <View style={styles.sonucKutusu}>
-                    <Text style={styles.yemekAdi}>{analizSonucu.yemekAdi}</Text>
+                    {duzeltmeMode ? (
+                        <View style={styles.duzeltmeRow}>
+                            <TextInput
+                                style={styles.duzeltmeInput}
+                                value={duzeltmeText}
+                                onChangeText={setDuzeltmeText}
+                                placeholder="Doğru yemek adını yaz..."
+                                autoFocus={true}
+                            />
+                            <TouchableOpacity style={styles.duzeltmeOnay} onPress={yemekDuzelt}>
+                                <Text style={styles.duzeltmeOnayText}>✓</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <TouchableOpacity onPress={() => {
+                            setDuzeltmeMode(true);
+                            setDuzeltmeText(analizSonucu.yemekAdi);
+                        }}>
+                            <Text style={styles.yemekAdi}>{analizSonucu.yemekAdi} ✏️</Text>
+                        </TouchableOpacity>
+                    )}
+                    <Text style={styles.porsiyonText}>{analizSonucu.porsiyon}g porsiyon</Text>
                     <View style={styles.besinRow}>
                         <View style={styles.besinItem}>
                             <Text style={styles.besinDeger}>{analizSonucu.kalori}</Text>
-                            <Text style={styles.besinLabel}>KCAL </Text>
+                            <Text style={styles.besinLabel}>kcal</Text>
                         </View>
                         <View style={styles.besinItem}>
-                            <Text style={styles.besinDeger}>{analizSonucu.protein}</Text>
-                            <Text style={styles.besinLabel}>Protein g</Text>
+                            <Text style={styles.besinDeger}>{analizSonucu.protein}g</Text>
+                            <Text style={styles.besinLabel}>Protein</Text>
                         </View>
                         <View style={styles.besinItem}>
                             <Text style={styles.besinDeger}>{analizSonucu.karbonhidrat}g</Text>
-                            <Text style={styles.besinLabel}>Karb </Text>
+                            <Text style={styles.besinLabel}>Karb</Text>
                         </View>
                         <View style={styles.besinItem}>
                             <Text style={styles.besinDeger}>{analizSonucu.yag}g</Text>
-                            <Text style={styles.besinLabel}>Yağ </Text>
+                            <Text style={styles.besinLabel}>Yağ</Text>
                         </View>
                     </View>
                 </View>
@@ -151,11 +246,16 @@ export default function CameraScreen(){
                     setFotograf(null);
                     setBase64Foto(null);
                     setAnalizSonucu(null);
+                    setDuzeltmeMode(false);
+                    setDuzeltmeText('');
                 }}>
                     <Text style={styles.tekrarButtonText}>Tekrar Cek</Text>
                 </TouchableOpacity>
                </View>
+            </ScrollView>
             </View>
+            </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
         );
     }
 
@@ -204,8 +304,6 @@ const styles= StyleSheet.create({
      onizlemeContainer: {
         flex:1 ,
         backgroundColor: '#312f2f',
-        alignItems: 'center',
-        justifyContent: 'center',
     },
     emoji: {
         fontSize: 20,
@@ -265,7 +363,13 @@ const styles= StyleSheet.create({
     fontWeight: 'bold',
     color: '#2c3e50',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 4,
+    },
+    porsiyonText: {
+        fontSize: 13,
+        color: '#7f8c8d',
+        textAlign: 'center',
+        marginBottom: 10,
     },
     besinRow: {
         flexDirection: 'row',
@@ -311,4 +415,40 @@ const styles= StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
+    duzeltmeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+},
+duzeltmeInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#3498db',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 16,
+    color: '#09090a',
+},
+duzeltmeOnay: {
+    marginLeft: 10,
+    backgroundColor: '#2ecc71',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+},
+duzeltmeOnayText: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: 'bold',
+},
+onizlemeScroll: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    paddingBottom: 30,
+},
 })

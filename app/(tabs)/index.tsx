@@ -1,4 +1,4 @@
-import {View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, Modal, TextInput} from 'react-native';
+import {View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, Modal, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Alert} from 'react-native';
 import {useState, useEffect , useCallback} from 'react';
 import {useRouter , useFocusEffect} from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -33,7 +33,7 @@ const Yemekler = [
 
 export default function HomeScreen(){
   
-  
+  // UseState vs.
   const router = useRouter();
   const [suBardak, setSuBardak] = useState(0);
   const suHedef = 8;
@@ -42,6 +42,14 @@ export default function HomeScreen(){
   const [modalVisible, setModalVisible] = useState(false);
   const [seciliYemek, setSeciliYemek]= useState<Yemek | null>(null);
   const [gramajInput, setGramajInput] = useState('');
+  const [analizYukleniyor , setAnalizYukleniyor] = useState(false);
+  const [analizSonucu , setAnalizSonucu] = useState<string | null>(null);
+  const [analizModalVisible, setAnalizModalVisible] = useState(false);
+
+
+  // Fonksiyonlar
+
+
 
   const verileriKaydet = async (ypilenYemeklerData: YenilenYemek[], kalorilerData: number) => {
   try{
@@ -130,20 +138,36 @@ export default function HomeScreen(){
     setGramajInput('');
   };
 
+  const profilData = async () => {
+      try {
+        const data = await AsyncStorage.getItem('profil');
+        if (data) {
+          const profil = JSON.parse(data);
+          return profil;
+        } 
+        return null;
+      }catch (error) {
+          console.log('Profil verisi cekilemedi.');
+          return null;
+        }
+    };
+
   const yemekSil = (yemek: YenilenYemek) => {
     const birPorsiyonKalori = Math.round(yemek.kalori / yemek.adet);
-    setKaloriler(kaloriler - birPorsiyonKalori);
+    const yeniKaloriler = kaloriler - birPorsiyonKalori;
+    setKaloriler(yeniKaloriler);
 
+    let yeniListe: YenilenYemek[];
     if (yemek.adet > 1){
-      const yeniListe = ypilenYemekler.map(y =>
+      yeniListe = ypilenYemekler.map(y =>
         y.id === yemek.id && y.gramaj === yemek.gramaj
         ? {...y, adet: y.adet - 1, kalori: y.kalori - birPorsiyonKalori} : y 
       );
-      setypilenYemekler(yeniListe);
     } else {
-      const yeniListe = ypilenYemekler.filter(y => !(y.id === yemek.id && y.gramaj === yemek.gramaj));
-      setypilenYemekler(yeniListe);
+      yeniListe = ypilenYemekler.filter(y => !(y.id === yemek.id && y.gramaj === yemek.gramaj));
     }
+    setypilenYemekler(yeniListe);
+    verileriKaydet(yeniListe, yeniKaloriler);
   };
 
   const sifirla = async () => {
@@ -157,7 +181,85 @@ export default function HomeScreen(){
     } catch (error) {
       console.log('Sifirlama Hatasi: ', error);
     }
-  }
+  };
+
+  const gunuAnaliz = async () => {
+    const profil = await profilData();
+    if(ypilenYemekler.length === 0) {
+      return Alert.alert('Analiz edilecek yiyecek yok.');
+    }
+    setAnalizYukleniyor(true);
+    setAnalizModalVisible(true);
+    setAnalizSonucu(null);
+
+    const yemekListesi = ypilenYemekler.map(y => 
+      `- ${y.isim}: ${y.gramaj}g x${y.adet} (${y.kalori} kcal)`
+      ).join('\n');
+
+    try {
+      const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+
+      const prompt = `Sen bir profesyonel beslenme uzmanısın. Türk mutfağı dahil tüm dünya mutfaklarını ve sağlıklı beslenme prensiplerini çok iyi biliyorsun.
+Aşağıda bir kullanıcının bugün yediği yemekler ve kişisel bilgileri verilmiştir.
+
+Kurallar:
+Kullanıcının gününü beslenme açısından özetle, eksik veya fazla yönlerini belirt.
+Sağlıklı ve uygulanabilir öneriler ver.
+Yorumlarını Türkçe, kısa ve anlaşılır şekilde yaz.
+Sadece düz metin olarak cevap ver, JSON, tablo veya madde işareti kullanma.
+Gereksiz tekrar yapma, samimi ve motive edici ol.
+Verdigin cevabi düz metin olarak ver. Asla JSON dosyası verme.
+
+Kullanıcı Bilgileri:
+Ad: ${profil?.isim || "Belirtilmedi"}
+Yaş: ${profil?.yas || "Belirtilmedi"}
+Cinsiyet: ${profil?.cinsiyet || "Belirtilmedi"}
+Boy: ${profil?.boy || "---"} cm
+Kilo: ${profil?.kilo || "---"} kg
+Hedef Kalori: ${profil?.hedefKalori || "Belirtilmedi"}
+
+Bugün Yediklerim:
+${yemekListesi || "Henüz veri girişi yapılmadı."}
+
+Lütfen bu bilgilere dayanarak analizini yap.`;
+
+      const yanit = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+          {
+            method:'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: prompt
+                }],
+              }],
+            }),
+          }
+      );
+
+      const data = await yanit.json();
+      
+      if (data.error) {
+        Alert.alert('Hata', 'Analiz servisinde bir sorun oluştu.');
+        setAnalizModalVisible(false);
+        return;
+      }
+
+      const sonucMetni = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (sonucMetni) {
+        setAnalizSonucu(sonucMetni);
+      }
+    } catch (error) {
+      console.log('Analiz Hatasi:', error);
+      Alert.alert('Hata', 'Analiz yapılırken bir sorun oluştu.');
+      setAnalizModalVisible(false);
+    } finally {
+      setAnalizYukleniyor(false);
+    }
+  };
+
+    
 
   const suEkle = () => {
     if (suBardak < suHedef) {
@@ -247,7 +349,12 @@ useEffect(() => {
       </View>
 
       <View style={styles.ypilenContainer}>
-        <Text style={styles.ypilenTitle}>📋 Bugün Yediklerin:</Text>
+        <View style={styles.ypilenHeader}>
+          <Text style={styles.ypilenTitle}>📋 Bugün Yediklerin:</Text>
+          <TouchableOpacity style={styles.sifirlaKucuk} onPress={sifirla}>
+            <Text style={styles.sifirlaKucukText}>✕</Text>
+          </TouchableOpacity>
+        </View>
         {ypilenYemekler.length > 0 ? (
           <ScrollView 
             horizontal={true} 
@@ -289,8 +396,8 @@ useEffect(() => {
       )}
     />
 </View>
-    <TouchableOpacity style={styles.sifirlaButton} onPress={sifirla}>
-      <Text style= {styles.sifirlaText}>Sıfırla</Text>
+    <TouchableOpacity style={styles.analizButton} onPress={gunuAnaliz}>
+      <Text style={styles.analizButtonText}>🤖 Günümü Analiz Et</Text>
     </TouchableOpacity>
     
 
@@ -300,7 +407,9 @@ useEffect(() => {
     animationType="fade"
     onRequestClose={() => setModalVisible(false)}
   >
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
     <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.modalContent}>
         {seciliYemek && (
           <>
@@ -343,8 +452,35 @@ useEffect(() => {
         </>
       )}
     </View>
+      </KeyboardAvoidingView>
   </View>
+    </TouchableWithoutFeedback>
 </Modal>
+
+    {/* Analiz Sonucu Modalı */}
+    <Modal
+      visible={analizModalVisible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setAnalizModalVisible(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>🤖 Günlük Analiz</Text>
+          <ScrollView style={{ maxHeight: 400, width: '100%' }}>
+            {analizYukleniyor ? (
+              <Text style={styles.modalLabel}>Yapay zeka gününü analiz ediyor...</Text>
+            ) : (
+              <Text style={styles.analizText}>{analizSonucu}</Text>
+            )}
+          </ScrollView>
+          <TouchableOpacity style={[styles.ekleButton, { marginTop: 0 }]} onPress={() => setAnalizModalVisible(false)}>
+            <Text style={styles.ekleButtonText}>Ｘ</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+
     </View>
   );
 };
@@ -493,17 +629,36 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: '600',
   },
-  sifirlaButton: {
-    backgroundColor: '#2c3e50',
+  analizButton: {
+    backgroundColor: '#27ae60',
     margin: 20,
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
   },
-  sifirlaText: {
+  analizButtonText: {
     color: '#ffffff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  sifirlaKucuk: {
+    backgroundColor: '#e0e0e0',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sifirlaKucukText: {
+    color: '#7f8c8d',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  ypilenHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   progressContainer: {
     width: '100%',
@@ -531,7 +686,6 @@ ypilenTitle: {
   fontSize: 18,
   fontWeight: 'bold',
   color: '#2c3e50',
-  marginBottom: 10,
 },
 ypilenItem: {
   backgroundColor: '#e8f5e9',
@@ -678,12 +832,14 @@ iptalButtonText: {
 ekleButton: {
   flex: 1,
   backgroundColor: '#e74c3c',
-  padding: 15,
-  borderRadius: 10,
+  width: 30,
+  height:30,
+  padding: 5,
+  borderRadius: 5,
   alignItems: 'center',
 },
 ekleButtonText: {
-  color: '#ffffff',
+  color: '#efefef',
   fontSize: 16,
   fontWeight: 'bold',
 },
@@ -741,5 +897,10 @@ suBardaklar: {
 suDamla: {
   fontSize : 18,
   marginHorizontal: 2,
+},
+analizText: {
+  fontSize: 16,
+  color: '#2c3e50',
+  lineHeight: 24,
 },
 });
