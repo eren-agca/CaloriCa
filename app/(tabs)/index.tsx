@@ -1,13 +1,17 @@
-import {View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView, Modal, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Alert} from 'react-native';
-import {useState, useEffect , useCallback} from 'react';
-import {useRouter , useFocusEffect} from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Route } from 'expo-router/build/Route';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Animated, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Modal, PanResponder, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+
+const screenHeight =  Dimensions.get('window').height;
 
 type Yemek = {
   id: string;
   isim: string;
   kaloriPer100g: number;
+  proteinPer100g: number;
+  karbPer100g: number;
+  yagPer100g: number;
   emoji: string;
 };
 type YenilenYemek = {
@@ -16,18 +20,21 @@ type YenilenYemek = {
   kalori: number;
   adet: number;
   gramaj: number;
+  protein: number;
+  karbonhidrat: number;
+  yag: number;
 };
 
 const Yemekler = [
-  {id: '1', isim: 'Pilav', kaloriPer100g: 130, emoji: '🍚'},
-  {id: '2', isim: 'Tavuk Göğsü', kaloriPer100g: 165, emoji: '🍗'},
-  {id: '3', isim: 'Salata', kaloriPer100g: 15, emoji: '🥗'},
-  {id: '4', isim: 'Ekmek', kaloriPer100g: 265, emoji: '🍞'},
-  {id: '5', isim: 'Yumurta', kaloriPer100g: 155, emoji: '🥚'},
-  {id: '6', isim: 'Muz', kaloriPer100g: 89, emoji: '🍌'},
-  {id: '7', isim: 'Elma', kaloriPer100g: 52, emoji: '🍎'},
-  {id: '8', isim: 'Peynir', kaloriPer100g: 350, emoji: '🧀'},
-  {id: '9', isim: 'Makarna', kaloriPer100g: 131, emoji: '🍝'},
+  {id: '1', isim: 'Pilav', kaloriPer100g: 130, proteinPer100g: 2.7, karbPer100g: 28, yagPer100g: 0.3, emoji: '🍚'},
+  {id: '2', isim: 'Tavuk Göğsü', kaloriPer100g: 165, proteinPer100g: 31, karbPer100g: 0, yagPer100g: 3.6, emoji: '🍗'},
+  {id: '3', isim: 'Salata', kaloriPer100g: 15, proteinPer100g: 1.2, karbPer100g: 2.9, yagPer100g: 0.2, emoji: '🥗'},
+  {id: '4', isim: 'Ekmek', kaloriPer100g: 265, proteinPer100g: 9, karbPer100g: 49, yagPer100g: 3.3, emoji: '🍞'},
+  {id: '5', isim: 'Yumurta', kaloriPer100g: 155, proteinPer100g: 13, karbPer100g: 1.1, yagPer100g: 11, emoji: '🥚'},
+  {id: '6', isim: 'Muz', kaloriPer100g: 89, proteinPer100g: 1.1, karbPer100g: 23, yagPer100g: 0.3, emoji: '🍌'},
+  {id: '7', isim: 'Elma', kaloriPer100g: 52, proteinPer100g: 0.3, karbPer100g: 14, yagPer100g: 0.2, emoji: '🍎'},
+  {id: '8', isim: 'Peynir', kaloriPer100g: 350, proteinPer100g: 28, karbPer100g: 1.3, yagPer100g: 28, emoji: '🧀'},
+  {id: '9', isim: 'Makarna', kaloriPer100g: 131, proteinPer100g: 5, karbPer100g: 25, yagPer100g: 1.1, emoji: '🍝'},
 ];
 
 
@@ -38,6 +45,9 @@ export default function HomeScreen(){
   const [suBardak, setSuBardak] = useState(0);
   const suHedef = 8;
   const [kaloriler,setKaloriler] = useState(0);
+  const [toplamProtein,setToplamProtein] = useState(0);
+  const [toplamKarb, setToplamKarb] = useState(0);
+  const [toplamYag, setToplamYag] = useState(0);
   const [ypilenYemekler, setypilenYemekler] = useState<YenilenYemek[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [seciliYemek, setSeciliYemek]= useState<Yemek | null>(null);
@@ -45,16 +55,52 @@ export default function HomeScreen(){
   const [analizYukleniyor , setAnalizYukleniyor] = useState(false);
   const [analizSonucu , setAnalizSonucu] = useState<string | null>(null);
   const [analizModalVisible, setAnalizModalVisible] = useState(false);
+  const scrollPosition = useRef(new Animated.Value(0)).current;
 
 
   // Fonksiyonlar
 
+  const panResponder = useRef(
+  PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderMove: (_, gestureState) => {
+      if (gestureState.dy > 0) {
+        scrollPosition.setValue(gestureState.dy);
+      }
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dy > 150) {
+        Animated.timing(scrollPosition, {
+            toValue: screenHeight,
+            duration: 300,
+            useNativeDriver: false,
+           }).start(() => {
+          setAnalizModalVisible(false);
+      });
+      } else {
+        Animated.spring(scrollPosition, {
+          toValue: 0,
+          useNativeDriver: false,
+        }).start();
+      }
+    },
+  })
+).current;
 
-
-  const verileriKaydet = async (ypilenYemeklerData: YenilenYemek[], kalorilerData: number) => {
+  const verileriKaydet = async (
+    ypilenYemeklerData: YenilenYemek[],
+    kalorilerData: number,
+    proteinData: number,
+    karbonhidratData: number,
+    yagData: number
+  ) => {
   try{
     await AsyncStorage.setItem('ypilenYemekler', JSON.stringify(ypilenYemeklerData));
     await AsyncStorage.setItem('kaloriler',kalorilerData.toString());
+    await AsyncStorage.setItem('toplamProtein', proteinData.toString());
+    await AsyncStorage.setItem('toplamKarb', karbonhidratData.toString());
+    await AsyncStorage.setItem('toplamYag', yagData.toString());
     await AsyncStorage.setItem('suBardak', suBardak.toString());
     await AsyncStorage.setItem('sonKayitTarihi',new Date().toDateString());
     const bugun = new Date().toISOString().split('T')[0];
@@ -63,6 +109,9 @@ export default function HomeScreen(){
     haftalik[bugun] = {
       kalori : kalorilerData,
       su : suBardak,
+      protein: proteinData,
+      karbonhidrat: karbonhidratData,
+      yag: yagData,
     };
     await AsyncStorage.setItem('haftalikIstatistik', JSON.stringify(haftalik));
   }catch (error) {
@@ -85,7 +134,10 @@ export default function HomeScreen(){
 
       const ypilenData = await AsyncStorage.getItem('ypilenYemekler');
       const kalorilerData = await AsyncStorage.getItem('kaloriler');
-
+      const proteinData = await AsyncStorage.getItem('toplamProtein');
+      const karbData = await AsyncStorage.getItem('toplamKarb');
+      const yagData = await AsyncStorage.getItem('toplamYag');
+      
       if(ypilenData) {
         setypilenYemekler(JSON.parse(ypilenData));
       }
@@ -94,6 +146,15 @@ export default function HomeScreen(){
       }
       if (suData){
         setSuBardak(parseInt(suData));
+      }
+      if (proteinData){
+        setToplamProtein(parseInt(proteinData));
+      }
+      if (karbData){
+        setToplamKarb(parseInt(karbData));
+      }
+      if (yagData){
+        setToplamYag(parseInt(yagData));
       }
     } catch (error) {
       console.log('Yukleme Hatasi: ', error);
@@ -113,8 +174,14 @@ export default function HomeScreen(){
     if (gramaj <= 0) return;
   
     const hesaplananKalori = Math.round((gramaj / 100) * seciliYemek.kaloriPer100g);
+    const hesaplananProtein = Math.round((gramaj / 100) * seciliYemek.proteinPer100g);
+    const hesaplananKarb = Math.round((gramaj / 100) * seciliYemek.karbPer100g);
+    const hesaplananYag = Math.round((gramaj / 100) * seciliYemek.yagPer100g);
 
     setKaloriler(kaloriler + hesaplananKalori);
+    setToplamProtein(toplamProtein + hesaplananProtein);
+    setToplamKarb(toplamKarb + hesaplananKarb);
+    setToplamYag(toplamYag + hesaplananYag);
 
     const mevcutIndex = ypilenYemekler.findIndex(y => y.id === seciliYemek.id && y.gramaj === gramaj);
     
@@ -130,6 +197,9 @@ export default function HomeScreen(){
         kalori: hesaplananKalori,
         adet: 1,
         gramaj : gramaj,
+        protein: hesaplananProtein,
+        karbonhidrat: hesaplananKarb,
+        yag: hesaplananYag,
     }]);
     }
 
@@ -167,7 +237,7 @@ export default function HomeScreen(){
       yeniListe = ypilenYemekler.filter(y => !(y.id === yemek.id && y.gramaj === yemek.gramaj));
     }
     setypilenYemekler(yeniListe);
-    verileriKaydet(yeniListe, yeniKaloriler);
+    verileriKaydet(yeniListe, yeniKaloriler,toplamProtein,toplamKarb,toplamYag);
   };
 
   const sifirla = async () => {
@@ -189,8 +259,11 @@ export default function HomeScreen(){
       return Alert.alert('Analiz edilecek yiyecek yok.');
     }
     setAnalizYukleniyor(true);
+    scrollPosition.setValue(screenHeight);
     setAnalizModalVisible(true);
     setAnalizSonucu(null);
+
+    
 
     const yemekListesi = ypilenYemekler.map(y => 
       `- ${y.isim}: ${y.gramaj}g x${y.adet} (${y.kalori} kcal)`
@@ -289,23 +362,23 @@ Lütfen bu bilgilere dayanarak analizini yap.`;
 
   const [hedef,setHedef] = useState(2000);
   const yuzde = Math.round(Math.min((kaloriler / hedef) * 100,100));
-  
-  // sayfa acilinca verileri yukleme
-useEffect(() => {
-  verileriYukle();
-},[]);
+ 
  // veriler degistiginde kaydetme
  useEffect(() =>{
   if(ypilenYemekler.length > 0 || kaloriler > 0 || suBardak > 0){
-    verileriKaydet(ypilenYemekler,kaloriler);
+    verileriKaydet(ypilenYemekler,kaloriler,toplamProtein,toplamKarb,toplamYag);
   }
- },[ypilenYemekler,kaloriler,suBardak]);
+ },[ypilenYemekler,kaloriler,suBardak,toplamProtein,toplamKarb,toplamYag]);
+
+
 
  useFocusEffect(
   useCallback(() => {
     hedefYukle();
+    verileriYukle();
   }, []));
 
+ 
 
   return(
     <View style={styles.container}>
@@ -324,6 +397,22 @@ useEffect(() => {
         <View style={[styles.progressBar, {width: `${yuzde}%`}]} />
       </View>
             <Text style={styles.progressText}>Hedefe : %{yuzde}</Text>
+            <View style={styles.besinContainer}>
+              <View style={styles.besinGridi}>
+                <View style={styles.besinKarti}>
+                  <Text style={styles.besinDeger}>{toplamProtein} g</Text>
+                  <Text style={styles.besinLabel}>Protein</Text>
+                </View>
+                 <View style={styles.besinKarti}>
+                  <Text style={styles.besinDeger}>{toplamKarb} g</Text>
+                  <Text style={styles.besinLabel}>Karb</Text>
+                </View>
+                 <View style={styles.besinKarti}>
+                  <Text style={styles.besinDeger}>{toplamYag} g</Text>
+                  <Text style={styles.besinLabel}>Yag</Text>
+                </View>
+              </View>
+            </View>
       </View>
 
       <View style={styles.suContainer}>
@@ -461,23 +550,40 @@ useEffect(() => {
     <Modal
       visible={analizModalVisible}
       transparent={true}
-      animationType="fade"
+      animationType="none"
       onRequestClose={() => setAnalizModalVisible(false)}
+      onShow={() => {
+      Animated.timing(scrollPosition, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: false,
+        }).start();
+      }}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>🤖 Günlük Analiz</Text>
-          <ScrollView style={{ maxHeight: 400, width: '100%' }}>
+      <View style={styles.bottomSheetOverlay}>
+       <TouchableWithoutFeedback onPress={() => setAnalizModalVisible(false)}>
+        <View style={styles.bottomSheetBackground}/>
+       </TouchableWithoutFeedback>
+
+       <Animated.View
+        style={[
+          styles.bottomSheetContent,
+            {transform: [{translateY: scrollPosition}] }
+          ]}
+        >
+           <View {...panResponder.panHandlers}>
+              <View style={styles.dragHandle}/>
+           </View>
+
+          <Text style={styles.modalTitle}>Gunluk Analiz</Text>
+          <ScrollView style={{maxHeight: screenHeight * 0.5}}>
             {analizYukleniyor ? (
-              <Text style={styles.modalLabel}>Yapay zeka gününü analiz ediyor...</Text>
+              <ActivityIndicator size='large' color='#28ae60' style={{marginVertical: 30}} />
             ) : (
               <Text style={styles.analizText}>{analizSonucu}</Text>
             )}
           </ScrollView>
-          <TouchableOpacity style={[styles.ekleButton, { marginTop: 0 }]} onPress={() => setAnalizModalVisible(false)}>
-            <Text style={styles.ekleButtonText}>Ｘ</Text>
-          </TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
 
@@ -902,5 +1008,66 @@ analizText: {
   fontSize: 16,
   color: '#2c3e50',
   lineHeight: 24,
+},
+bottomSheetOverlay: {
+  flex: 1,
+  justifyContent: 'flex-end',
+  backgroundColor: 'rgba(0,0,0,0.5)',
+},
+bottomSheetBackground: {
+  flex: 1,
+  
+},
+dragHandle: {
+  width: 40,
+  height: 5,
+  backgroundColor:'#ccc',
+  borderRadius: 3,
+  alignSelf: 'center',
+  marginBottom: 15,
+},
+bottomSheetContent: {
+  backgroundColor: '#ffffff',
+  borderTopLeftRadius: 25,
+  borderTopRightRadius: 25,
+  padding: 20,
+  paddingTop: 10,
+  maxHeight: screenHeight * 0.7,
+},
+besinContainer: {
+  backgroundColor: '#ffffff',
+  padding: 20,
+  borderRadius: 15,
+  width: '100%',
+  marginTop: 20,
+  shadowColor: '#000',
+  shadowOffset: {width: 0, height: 2},
+  shadowOpacity: 0.1,
+  shadowRadius: 4,
+},
+besinBaslik: {
+  fontSize: 18,
+  fontWeight: 'bold',
+  color: '#2c3e50',
+  marginBottom: 15,
+  textAlign: 'center',
+},
+besinGridi: {
+  flexDirection: 'row',
+  justifyContent: 'space-around',
+},
+besinKarti: {
+  alignItems: 'center',
+  flex: 1,
+},
+besinDeger: {
+  fontSize: 20,
+  fontWeight: 'bold',
+  color: '#e74c3c',
+},
+besinLabel: {
+  fontSize: 14,
+  color: '#7f8c8d',
+  marginTop: 5,
 },
 });

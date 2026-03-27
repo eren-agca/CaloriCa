@@ -1,6 +1,8 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image , TextInput , KeyboardAvoidingView , Platform , TouchableWithoutFeedback, Keyboard , ScrollView} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useState, useRef } from 'react';
+import { useRouter } from 'expo-router';
+import { useRef, useState } from 'react';
+import { Alert, Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 
 export default function CameraScreen(){
 
@@ -8,11 +10,13 @@ export default function CameraScreen(){
     type AnalizSonucu = {
         yemekAdi: string;
         porsiyon: number;
+        birim: string;
         kalori: number;
         protein: number;
         karbonhidrat: number;
         yag: number;
     };
+    
 
 
     // useState vs.
@@ -25,6 +29,7 @@ export default function CameraScreen(){
     const [analizSonucu, setAnalizSonucu]= useState<AnalizSonucu |null>(null);
     const [yukleniyor, setYukleniyor] = useState(false);
     const [base64Foto, setBase64Foto] = useState<string | null>(null);
+    const router = useRouter();
 
     // Fonksiyonlar
 
@@ -65,25 +70,42 @@ export default function CameraScreen(){
                                 {
                                     text: `Sen bir profesyonel beslenme uzmanı ve gıda tanıma uzmanısın. Türk mutfağı dahil dünya mutfaklarını çok iyi biliyorsun.
 
-Bu fotoğraftaki yemeği dikkatli bir şekilde analiz et.
+Bu fotoğraftaki yemeği/içeceği dikkatli bir şekilde analiz et.
+
+REFERANS BOYUTLARI (porsiyon tahmini için kullan):
+- Standart çay bardağı: 150-200 ml
+- Buyuk boy kupa : 300-500 ml
+- Su bardağı: 200-250 ml
+- Kahve fincanı: 50-80 ml
+- Yemek tabağı: 22-26 cm çap (300-400g yemek sığar)
+- Çorba kasesi: 250-300 ml
+- 1 dilim ekmek: 30-40g
+- 1 yumurta: 50-60g
+- 1 poğaça/simit: 80-120g
+- 1 porsiyon pilav: 150-200g
+- Varsa tabak, bardak, kaşık, kişi eli gibi referans objelerle karşılaştır
 
 Kurallar:
 - Yemeğin tam ve doğru adını Türkçe olarak yaz (örneğin: poğaça, lahmacun, mercimek çorbası)
 - Benzer görünen yemekleri karıştırma (poğaça ≠ pişi, simit ≠ açma, börek ≠ gözleme)
-- Fotoğraftaki yemeğin görünüşüne, şekline, rengine, dokusuna ve boyutuna dikkat et
-- Porsiyon miktarını fotoğraftaki büyüklüğe göre tahmin et (gram cinsinden)
-- Eğer yiyecek/içecek yarım kalmışsa, bir kısmı yenmiş/içilmişse veya eksikse, KALAN miktarı tahmin et (dolu halini değil). Örneğin bardağın yarısı içilmiş bir kahve için 200ml değil ~100ml yaz
+- Fotoğraftaki yemeğin görünüşüne, şekline, rengine, dokusuna ve boyutuna DİKKATLİ bak
+- SIVILER için birim: "ml", KATILAR için birim: "g" kullan
+  * Çorba, kahve, çay, su, süt, ayran, meyve suyu = SIVI (ml)
+  * Ekmek, et, pilav, salata, meyve, pasta, tatlı = KATI (g)
+- Porsiyon miktarını fotoğraftaki büyüklüğe göre GERÇEKÇİ tahmin et
+- Eğer yiyecek/içecek yarım kalmışsa, KALAN miktarı tahmin et (dolu halini değil)
+  * Örnek: Yarısı içilmiş bardak çay → 100ml (200ml değil)
 - Besin değerlerini o porsiyon miktarına göre hesapla
-- Eğer fotoğrafta yemek yoksa veya tanıyamıyorsan yemekAdi olarak "Tanımlanamadı" yaz
+- Eğer fotoğrafta yemek yoksa yemekAdi: "Tanımlanamadı" yaz
 
 Sadece aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
-{"yemekAdi": "...", "porsiyon": 0, "kalori": 0, "protein": 0, "karbonhidrat": 0, "yag": 0}
+{"yemekAdi": "...", "porsiyon": 0, "birim": "g", "kalori": 0, "protein": 0, "karbonhidrat": 0, "yag": 0}
 
-- porsiyon: gram cinsinden tahmini porsiyon miktarı (örnek: 150)
-- kalori: kcal cinsinden (örnek: 280)
-- protein: gram cinsinden (örnek: 12)
-- karbonhidrat: gram cinsinden (örnek: 35)
-- yag: gram cinsinden (örnek: 10)`
+Örnekler:
+- 1 bardak çay → {"yemekAdi": "Çay", "porsiyon": 200, "birim": "ml", "kalori": 2, ...}
+- 1 tabak pilav → {"yemekAdi": "Pilav", "porsiyon": 180, "birim": "g", "kalori": 234, ...}
+- Yarım bardak kahve → {"yemekAdi": "Kahve", "porsiyon": 100, "birim": "ml", "kalori": 5, ...}
+- 2 dilim ekmek → {"yemekAdi": "Ekmek", "porsiyon": 70, "birim": "g", "kalori": 185, ...}`
                                 },
                                 {
                                     inlineData: {
@@ -135,12 +157,17 @@ Sadece aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
                 body: JSON.stringify({
                     contents: [{
                         parts: [{
-                            text: `Sen bir beslenme uzmanısın. Kullanıcı bir yiyecek/içecek adı veriyor. Bu yiyeceğin ${porsiyon} gramlık porsiyon için besin değerlerini hesapla.
+                            text: `Sen bir beslenme uzmanısın. Kullanıcı bir yiyecek/içecek adı veriyor.
 
 Yiyecek: ${duzeltmeText}
+Porsiyon: ${porsiyon}
+
+Bu yiyeceğin/içeceğin besin değerlerini hesapla.
+ÖNEMLI: Eğer SIVI ise (çorba, kahve, çay, süt, ayran, meyve suyu vb) birim "ml" olsun.
+Eğer KATI ise (ekmek, et, pilav, meyve, salata vb) birim "g" olsun.
 
 Sadece aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
-{"yemekAdi": "${duzeltmeText}", "porsiyon": ${porsiyon}, "kalori": 0, "protein": 0, "karbonhidrat": 0, "yag": 0}`
+{"yemekAdi": "${duzeltmeText}", "porsiyon": ${porsiyon}, "birim": "g veya ml", "kalori": 0, "protein": 0, "karbonhidrat": 0, "yag": 0}`
                         }]
                     }]
                 })
@@ -162,6 +189,54 @@ Sadece aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
             setYukleniyor(false);
         }
     };
+
+    const yemekKaydet = async () => {
+    if (!analizSonucu) return;
+
+    try {
+        // Mevcut verileri oku
+        const ypilenData = await AsyncStorage.getItem('ypilenYemekler');
+        const kalorilerData = await AsyncStorage.getItem('kaloriler');
+        
+        let ypilenYemekler = ypilenData ? JSON.parse(ypilenData) : [];
+        let kaloriler = kalorilerData ? parseInt(kalorilerData) : 0;
+
+        // Yeni yemeği ekle
+        const yeniYemek = {
+            id: Date.now().toString(),
+            isim: analizSonucu.yemekAdi,
+            kalori: analizSonucu.kalori,
+            adet: 1,
+            gramaj: analizSonucu.porsiyon,
+            protein: analizSonucu.protein,
+            karbonhidrat: analizSonucu.karbonhidrat,
+            yag: analizSonucu.yag,
+        };
+
+        ypilenYemekler.push(yeniYemek);
+        kaloriler += analizSonucu.kalori;
+
+        // Kaydet
+        await AsyncStorage.setItem('ypilenYemekler', JSON.stringify(ypilenYemekler));
+        await AsyncStorage.setItem('kaloriler', kaloriler.toString());
+        await AsyncStorage.setItem('sonKayitTarihi', new Date().toDateString());
+
+        // Başarı mesajı
+        Alert.alert('✅ Eklendi!', `${analizSonucu.yemekAdi} günlük listene eklendi.`);
+
+        // Kamerayı sıfırla (yeni çekim için)
+        setFotograf(null);
+        setBase64Foto(null);
+        setAnalizSonucu(null);
+        setDuzeltmeMode(false);
+        setDuzeltmeText('');
+
+    } catch (error) {
+        console.log('Kaydetme Hatasi:', error);
+        Alert.alert('Hata', 'Kaydederken bir sorun oluştu.');
+    }
+};
+
     // Kamera izin durumlari
     if(!permission){
         return <View style={styles.container}><Text>Yukleniyor...</Text></View>;
@@ -214,7 +289,7 @@ Sadece aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
                             <Text style={styles.yemekAdi}>{analizSonucu.yemekAdi} ✏️</Text>
                         </TouchableOpacity>
                     )}
-                    <Text style={styles.porsiyonText}>{analizSonucu.porsiyon}g porsiyon</Text>
+                    <Text style={styles.porsiyonText}>{analizSonucu.porsiyon}{analizSonucu.birim} porsiyon</Text>
                     <View style={styles.besinRow}>
                         <View style={styles.besinItem}>
                             <Text style={styles.besinDeger}>{analizSonucu.kalori}</Text>
@@ -242,6 +317,11 @@ Sadece aşağıdaki JSON formatında yanıt ver, başka hiçbir şey yazma:
                         <Text style={styles.analizButtonText}>Analiz Et</Text>
                     </TouchableOpacity>
                 )} 
+                {analizSonucu && (
+                    <TouchableOpacity style={styles.kaydetButton} onPress={yemekKaydet}>
+                        <Text style={styles.kaydetButtonText}>Kaydet ve Ekle 💾</Text>
+                    </TouchableOpacity>
+                )}
                 <TouchableOpacity style={styles.tekrarButton} onPress={() => {
                     setFotograf(null);
                     setBase64Foto(null);
@@ -451,4 +531,15 @@ onizlemeScroll: {
     width: '100%',
     paddingBottom: 30,
 },
+kaydetButton: {
+    backgroundColor: '#27ae60',
+    paddingHorizontal: 25,
+    paddingVertical: 12,
+    borderRadius: 25,
+},
+kaydetButtonText: {
+    color: '#ffffff',
+    fontSize:16,
+    fontWeight: 'bold',
+}
 })
