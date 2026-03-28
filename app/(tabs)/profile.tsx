@@ -12,6 +12,9 @@ export default function ProfileScreen() {
   const [kilo,setKilo] = useState('');
   const [cinsiyet,setCinsiyet] = useState('E');
   const [hedefKalori,setHedefKalori] = useState('2000');
+  const [hedefProtein,setHedefProtein] = useState('150');
+  const [hedefKarb,setHedefKarb] = useState('250');
+  const [hedefYag,setHedefYag] = useState('70');
   const [bmi,setBmi] = useState(0);
   const [duzenlemeMode, setDuzenlemeMode] = useState(false);
 
