@@ -1,13 +1,15 @@
-import { View, Text, StyleSheet , ScrollView } from 'react-native';
-import { useState , useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 
 export default function StatsScreen () {
 
-  const [haftalikVeri, setHaftalikVeri] = useState<{tarih: string; kalori: number; su: number}[]>([]);
+  const [haftalikVeri, setHaftalikVeri] = useState<{tarih: string; kalori: number; su: number,protein: number,karbonhidrat: number,yag: number}[]>([]);
   const [hedef, setHedef] = useState(2000);
+  const [selectedDay, setSelectedDay] = useState<{tarih: string; kalori: number; su: number,protein: number,karbonhidrat: number,yag: number} | null>(null);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
 
   const verileriYukle = async () => {
     try {
@@ -25,7 +27,7 @@ export default function StatsScreen () {
       
 
       const bugun = new Date();
-      const son7Gun: {tarih: string; kalori: number; su: number}[] = [];
+      const son7Gun: {tarih: string; kalori: number; su: number,protein: number,karbonhidrat: number,yag: number}[] = [];
 
       for(let i=6; i >= 0; i--) {
         const tarih = new Date(bugun);
@@ -36,6 +38,9 @@ export default function StatsScreen () {
           tarih: tarihStr,
           kalori: haftalik[tarihStr]?.kalori || 0,
           su: haftalik[tarihStr]?.su || 0,
+          protein: haftalik[tarihStr]?.protein || 0,
+          karbonhidrat: haftalik[tarihStr]?.karbonhidrat || 0,
+          yag: haftalik[tarihStr]?.yag || 0,          
         });
       }
       setHaftalikVeri(son7Gun);
@@ -79,7 +84,14 @@ export default function StatsScreen () {
             const hedefYuzde = hedef > 0 ? (gun.kalori / hedef) * 100 : 0;
 
             return (
-              <View key={index} style={styles.grafikSutun}>
+              <TouchableOpacity 
+              key={index} 
+              style={styles.grafikSutun}
+              onPress={() => {
+                setSelectedDay(gun);
+                setDetailModalVisible(true);
+              }}
+              >
                 <Text style={styles.grafikDeger}>
                   {gun.kalori > 0 ? gun.kalori : ''}
                 </Text>
@@ -95,7 +107,7 @@ export default function StatsScreen () {
                   />
                 </View>
                 <Text style={styles.grafikGun}>{gunAdi(gun.tarih)}</Text>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -127,6 +139,57 @@ export default function StatsScreen () {
       <View style={styles.suOzet}>
         <Text style={styles.suOzetText}>💧 Su Ortalaması: {ortalamaSu} bardak/gün</Text>
       </View>
+
+      <Modal 
+        visible= {detailModalVisible}
+        transparent={true}
+        animationType='fade'
+        onRequestClose={() => setDetailModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {selectedDay && (
+              <>
+                <Text style={styles.modalTitle}>{selectedDay.tarih}</Text>
+
+                <View style={styles.makroContainer}>
+                   <View style={styles.makroItem}>
+                    <Text style={styles.makroLabel}>Kalori</Text>
+                    <Text style={styles.makroDeger}>{selectedDay.kalori}</Text>
+                    <Text style={styles.makroAlt}>/2000 kcal</Text>
+                  </View>
+
+                  <View style={styles.makroItem}>
+                    <Text style={styles.makroLabel}>Protein</Text>
+                    <Text style={styles.makroDeger}>{selectedDay.protein}</Text>
+                    <Text style={styles.makroAlt}> / 150 g</Text>
+                  </View>
+
+                   <View style={styles.makroItem}>
+                    <Text style={styles.makroLabel}>Karbonhidrat</Text>
+                    <Text style={styles.makroDeger}>{selectedDay.karbonhidrat}</Text>
+                    <Text style={styles.makroAlt}> / 250 g</Text>
+                  </View>
+
+                   <View style={styles.makroItem}>
+                    <Text style={styles.makroLabel}>Yağ</Text>
+                    <Text style={styles.makroDeger}>{selectedDay.yag}</Text>
+                    <Text style={styles.makroAlt}> / 70 g</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.kapaButton}
+                  onPress={() => setDetailModalVisible(false)}
+                >
+                  <Text style={styles.kapaButtonText}>Kapat</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       </ScrollView>
     );
 }
@@ -252,4 +315,60 @@ const styles= StyleSheet.create({
     fontWeight: '600',
     color: '#1976d2',
   },
+  modalOverlay: {
+  flex: 1,
+  backgroundColor: 'rgba(0,0,0,0.5)',
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+modalContent: {
+  backgroundColor: '#ffffff',
+  borderRadius: 20,
+  padding: 25,
+  width: '85%',
+  alignItems: 'center',
+},
+modalTitle: {
+  fontSize: 22,
+  fontWeight: 'bold',
+  color: '#2c3e50',
+  marginBottom: 20,
+},
+makroContainer: {
+  width: '100%',
+  marginBottom: 20,
+},
+makroItem: {
+  backgroundColor: '#f5f5f5',
+  padding: 15,
+  borderRadius: 10,
+  marginBottom: 10,
+  alignItems: 'center',
+},
+makroLabel: {
+  fontSize: 14,
+  color: '#7f8c8d',
+  marginBottom: 5,
+},
+makroDeger: {
+  fontSize: 24,
+  fontWeight: 'bold',
+  color: '#e74c3c',
+},
+makroAlt: {
+  fontSize: 12,
+  color: '#95a5a6',
+  marginTop: 5,
+},
+kapaButton: {
+  backgroundColor: '#e74c3c',
+  paddingHorizontal: 40,
+  paddingVertical: 12,
+  borderRadius: 10,
+},
+kapaButtonText: {
+  color: '#ffffff',
+  fontWeight: 'bold',
+  fontSize: 16,
+},
 });

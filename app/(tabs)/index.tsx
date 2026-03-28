@@ -389,7 +389,10 @@ Lütfen bu bilgilere dayanarak analizini yap.`;
           <Text style={styles.profileIcon}>👤</Text>
         </TouchableOpacity>
       </View>
-     <View style={styles.summaryBox}>
+    
+
+     <ScrollView style={styles.scrollViewContent} contentContainerStyle={styles.scrollViewContainer}>
+       <View style={styles.summaryBox}>
       <Text style={styles.summaryTitle}>Bugunku Toplam</Text>
       <Text style={styles.calories}>{kaloriler} kcal</Text>
       <Text style={styles.yemekSayisi}>{ypilenYemekler.length} yemek eklendi</Text>
@@ -414,7 +417,7 @@ Lütfen bu bilgilere dayanarak analizini yap.`;
               </View>
             </View>
       </View>
-
+      
       <View style={styles.suContainer}>
         <View style={styles.suHeader}>
           <Text style={styles.suTitle}>💧 Su Takibi</Text>
@@ -475,20 +478,23 @@ Lütfen bu bilgilere dayanarak analizini yap.`;
       data={Yemekler}
       keyExtractor={(item) => item.id}
       numColumns={3}
+      scrollEnabled={false}
+      nestedScrollEnabled={true}
       style={styles.list}
       contentContainerStyle={styles.listContent}
       renderItem={({item}) => (
        <TouchableOpacity style={styles.yemekKart} onPress={() => yemekSec(item)}>
         <Text style={styles.yemekEmoji}>{item.emoji}</Text>
         <Text style={styles.yemekKartIsim}>{item.isim} </Text>
-       </TouchableOpacity> 
+       </TouchableOpacity>
       )}
     />
 </View>
     <TouchableOpacity style={styles.analizButton} onPress={gunuAnaliz}>
       <Text style={styles.analizButtonText}>🤖 Günümü Analiz Et</Text>
     </TouchableOpacity>
-    
+    </ScrollView>
+
 
   <Modal
     visible={modalVisible}
@@ -598,6 +604,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     alignItems: 'center',
     paddingTop: 60,
+  },
+  scrollViewContent: {
+    flex: 1,
+    marginTop: 15,
+  },
+  scrollViewContainer: {
+    alignItems: 'center',
+    paddingBottom: 30,
   },
   header: {
     flexDirection: 'row',
@@ -818,11 +832,10 @@ bosListeText: {
   paddingVertical: 20,
 },
 menuContainer: {
-  flex: 1,
   width : '100%',
-  maxHeight: 280,
   marginTop: 10,
   paddingHorizontal: 5,
+  minHeight: 400,
 },
 chipScrollContent: {
   flexDirection: 'row',
