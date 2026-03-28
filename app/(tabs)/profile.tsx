@@ -1,7 +1,7 @@
-import { View, Text, StyleSheet , TouchableOpacity, TextInput , ScrollView , Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -47,8 +47,9 @@ export default function ProfileScreen() {
 
   const profiliKaydet = async () => {
     try {
-      const profilData = {isim,yas,boy,kilo,cinsiyet,hedefKalori,};
+      const profilData = {isim,yas,boy,kilo,cinsiyet,hedefKalori,hedefProtein,hedefKarb,hedefYag};
       await AsyncStorage.setItem('profil', JSON.stringify(profilData));
+      console.log('Debug: setDuzenlemeMode cagrilacak');
       setDuzenlemeMode(false);
       Alert.alert('Basarili', 'Profil kaydedildi! ✅ ');
     } catch (error) {
@@ -67,6 +68,9 @@ export default function ProfileScreen() {
         setKilo(profil.kilo || '');
         setCinsiyet(profil.cinsiyet || 'E');
         setHedefKalori(profil.hedefKalori || '2000');
+        setHedefProtein(profil.hedefProtein || '150');
+        setHedefKarb(profil.hedefKarb || '250');
+        setHedefYag(profil.hedefYag || '70');
       }
     } catch (error) {
       console.log('Yukleme Hatasi: ', error);
@@ -135,7 +139,47 @@ useEffect(() => {
               <Text style={[styles.cinsiyetText, cinsiyet === 'K' && styles.cinsiyetAktifText]}>Kadın</Text>
             </TouchableOpacity>
           </View>
+          <View style={styles.hedefContainer}>
+        <Text style={styles.formLabel}>🎯 Günlük Kalori Hedefi</Text>
+        <TextInput
+          style={styles.hedefInput}
+          value={hedefKalori}
+          onChangeText={setHedefKalori}
+          placeholder="Örn: 2000"
+          placeholderTextColor="#95a5a6"
+          keyboardType="numeric"
+        />
+        <Text>🎯 Protein Hedefi (g)</Text>
+        <TextInput
+          style={styles.hedefInput}
+          value={hedefProtein}
+          onChangeText={setHedefProtein}
+          placeholder='Ornek: 150'
+          keyboardType='numeric'
+        />
+        <Text>🎯 Karbonhidrat Hedefi (g)</Text>
+        <TextInput
+          style={styles.hedefInput}
+          value={hedefKarb}
+          onChangeText={setHedefKarb}
+          placeholder='Ornek: 400'
+          keyboardType='numeric'
+        />
+        <Text>🎯 Yağ Hedefi (g)</Text>
+        <TextInput
+          style={styles.hedefInput}
+          value={hedefYag}
+          onChangeText={setHedefYag}
+          placeholder='Ornek: 70'
+          keyboardType='numeric'
+        />
+          
+      </View>
+          <TouchableOpacity style={styles.kaydetButton} onPress={profiliKaydet}>
+            <Text style={styles.kaydetText}>💾 Kaydet</Text>
+          </TouchableOpacity>
         </View>
+        
       ) : (
        <View style={styles.bilgiContainer}>
           <View style={styles.bilgiSatir}>
@@ -154,32 +198,35 @@ useEffect(() => {
             <Text style={styles.bilgiLabel}>👫 Cinsiyet</Text>
             <Text style={styles.bilgiDeger}>{cinsiyet === 'E' ? 'Erkek' : 'Kadın'}</Text>
           </View>
-        </View>
-      )}
-
-      {bmi > 0 && (
+           {bmi > 0 && (
         <View style={[styles.bmiBox, {borderColor: bmiRenk() }]}>
           <Text style={styles.bmiLabel}>Vücut Kitle İndeksi (BMI)</Text>
           <Text style={[styles.bmiValue, {color: bmiRenk() }]}>{bmi}</Text>
           <Text style={[styles.bmiDurum, {color: bmiRenk() }]}>{bmiDurum()}</Text>
         </View>
       )}
+      <View style={styles.hedefGosterim}>
+        <Text style={styles.hedefGosterimBaslik}>Günlük Hedefler</Text>
 
-      <View style={styles.hedefContainer}>
-        <Text style={styles.formLabel}>🎯 Günlük Kalori Hedefi</Text>
-        <TextInput
-          style={styles.hedefInput}
-          value={hedefKalori}
-          onChangeText={setHedefKalori}
-          placeholder="Örn: 2000"
-          placeholderTextColor="#95a5a6"
-          keyboardType="numeric"
-        />
+        <View style={styles.hedefKutu}>
+          <Text style={styles.hedefKutuDeger}>🎯 Kalori: {hedefKalori} kcal</Text>
+        </View>
+
+        <View style={styles.hedefKutu}>
+          <Text style={styles.hedefKutuDeger}>🎯 Protein: {hedefProtein} g</Text>
+        </View>
+
+        <View style={styles.hedefKutu}>
+          <Text style={styles.hedefKutuDeger}>🎯 Karbonhidrat: {hedefKarb} g</Text>
+        </View>
+
+        <View style={styles.hedefKutu}>
+          <Text style={styles.hedefKutuDeger}>🎯 Yağ: {hedefYag} g</Text>
+        </View>
       </View>
-
-      <TouchableOpacity style={styles.kaydetButton} onPress={profiliKaydet}>
-        <Text style={styles.kaydetText}>💾 Kaydet</Text>
-      </TouchableOpacity>
+        </View>
+      )}
+ 
     </ScrollView>
 
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -380,11 +427,38 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 10,
     padding: 15,
+    marginBottom: 15,
     fontSize: 20,
     color: '#e74c3c',
     fontWeight: 'bold',
     textAlign: 'center',
     borderWidth: 2,
     borderColor: '#e74c3c',
+  },
+  hedefGosterim: {
+    marginHorizontal: 25,
+    marginTop: 15,
+    marginBottom: 20,
+  },
+  hedefGosterimBaslik: {
+  fontSize: 16,
+  fontWeight: '600',
+  color: '#2c3e50',
+  marginBottom: 12,
+  },
+  hedefKutu: {
+    backgroundColor: '#ffffff',
+    borderWidth: 2,
+    borderColor: '#e74c3c',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hedefKutuDeger: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
   },
 });
