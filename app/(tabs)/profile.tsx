@@ -204,26 +204,26 @@ useEffect(() => {
           <Text style={[styles.bmiValue, {color: bmiRenk() }]}>{bmi}</Text>
           <Text style={[styles.bmiDurum, {color: bmiRenk() }]}>{bmiDurum()}</Text>
         </View>
-      )}
-      <View style={styles.hedefGosterim}>
-        <Text style={styles.hedefGosterimBaslik}>Günlük Hedefler</Text>
+        )}
+        <View style={styles.hedefGosterim}>
+          <Text style={styles.hedefGosterimBaslik}>Günlük Hedefler</Text>
 
-        <View style={styles.hedefKutu}>
-          <Text style={styles.hedefKutuDeger}>🎯 Kalori: {hedefKalori} kcal</Text>
-        </View>
+          <View style={styles.hedefKutu}>
+            <Text style={styles.hedefKutuDeger}>🎯 Kalori: {hedefKalori} kcal</Text>
+          </View>
 
-        <View style={styles.hedefKutu}>
-          <Text style={styles.hedefKutuDeger}>🎯 Protein: {hedefProtein} g</Text>
-        </View>
+          <View style={styles.hedefKutu}>
+            <Text style={styles.hedefKutuDeger}>🎯 Protein: {hedefProtein} g</Text>
+          </View>
 
-        <View style={styles.hedefKutu}>
-          <Text style={styles.hedefKutuDeger}>🎯 Karbonhidrat: {hedefKarb} g</Text>
-        </View>
+          <View style={styles.hedefKutu}>
+            <Text style={styles.hedefKutuDeger}>🎯 Karbonhidrat: {hedefKarb} g</Text>
+          </View>
 
-        <View style={styles.hedefKutu}>
-          <Text style={styles.hedefKutuDeger}>🎯 Yağ: {hedefYag} g</Text>
+          <View style={styles.hedefKutu}>
+            <Text style={styles.hedefKutuDeger}>🎯 Yağ: {hedefYag} g</Text>
+          </View>
         </View>
-      </View>
         </View>
       )}
  

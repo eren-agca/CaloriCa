@@ -212,7 +212,7 @@ export default function HomeScreen(){
       try {
         const data = await AsyncStorage.getItem('profil');
         if (data) {
-          const profil = JSON.parse(data);
+          const profil = JSON.parse(data) as any;
           return profil;
         } 
         return null;
@@ -354,13 +354,26 @@ Lütfen bu bilgilere dayanarak analizini yap.`;
         if(profil.hedefKalori) {
           setHedef(parseInt(profil.hedefKalori));
         }
+      
+      if(profil.hedefProtein) {
+        setHedefProtein(parseInt(profil.hedefProtein));
       }
+       if(profil.hedefKarb) {
+        setHedefKarb(parseInt(profil.hedefKarb));
+      }
+       if(profil.hedefYag) {
+        setHedefYag(parseInt(profil.hedefYag));
+      }
+    }
     } catch (error) {
       console.log('Hedef Yukleme Hatasi: ', error);
     }
   };
 
   const [hedef,setHedef] = useState(2000);
+  const [hedefProtein, setHedefProtein] = useState(150);
+  const [hedefKarb, setHedefKarb] = useState(250);
+  const [hedefYag, setHedefYag] = useState(70);
   const yuzde = Math.round(Math.min((kaloriler / hedef) * 100,100));
  
  // veriler degistiginde kaydetme
@@ -392,30 +405,18 @@ Lütfen bu bilgilere dayanarak analizini yap.`;
     
 
      <ScrollView style={styles.scrollViewContent} contentContainerStyle={styles.scrollViewContainer}>
-       <View style={styles.summaryBox}>
-      <Text style={styles.summaryTitle}>Bugunku Toplam</Text>
-      <Text style={styles.calories}>{kaloriler} kcal</Text>
-      <Text style={styles.yemekSayisi}>{ypilenYemekler.length} yemek eklendi</Text>
-      <View style={styles.progressContainer}>
-        <View style={[styles.progressBar, {width: `${yuzde}%`}]} />
-      </View>
-            <Text style={styles.progressText}>Hedefe : %{yuzde}</Text>
-            <View style={styles.besinContainer}>
-              <View style={styles.besinGridi}>
-                <View style={styles.besinKarti}>
-                  <Text style={styles.besinDeger}>{toplamProtein} g</Text>
-                  <Text style={styles.besinLabel}>Protein</Text>
-                </View>
-                 <View style={styles.besinKarti}>
-                  <Text style={styles.besinDeger}>{toplamKarb} g</Text>
-                  <Text style={styles.besinLabel}>Karb</Text>
-                </View>
-                 <View style={styles.besinKarti}>
-                  <Text style={styles.besinDeger}>{toplamYag} g</Text>
-                  <Text style={styles.besinLabel}>Yag</Text>
-                </View>
-              </View>
-            </View>
+      <View style={styles.summaryBox}>
+        <View style={styles.topRow}>
+          <View style={styles.leftContent}>
+            <Text style={styles.calorieMainText}> {kaloriler} kcal </Text>
+            <Text style={styles.calorieSubText}>
+              Hedefe Kalan : {Math.max(0,hedef - kaloriler)} kcal
+            </Text>
+          </View>
+          <View style={styles.circularContainer}>
+            <Text style={styles.circularProgressText}> %{yuzde} </Text>
+          </View>
+        </View>
       </View>
       
       <View style={styles.suContainer}>
@@ -650,15 +651,109 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   summaryBox: {
-    backgroundColor: '#ffffff',
-    padding: 20,
-    borderRadius: 15,
-    width: '85%',
+    backgroundColor: '#3a7d52',
+    padding: 25,
+    borderRadius: 20,
+    width: '90%',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+  },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 25,
+    width: '100%',
+  },
+
+  leftContent: {
+    flex: 1,
+  },
+
+  calorieMainText: {
+    fontSize: 42,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 8,
+  },
+
+  calorieSubText: {
+    fontSize: 15,
+    color: '#d0e8d9',
+    marginBottom: 10,
+    fontWeight: '500',
+  },
+
+  circularContainer: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+
+  circularProgressText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+
+  macroList: {
+    marginBottom: 20,
+  },
+
+  macroRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+
+  macroLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+
+  macroDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 10,
+  },
+
+  macroLabel: {
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '500',
+  },
+
+  macroValue: {
+    fontSize: 14,
+    color: '#e0e0e0',
+    textAlign: 'right',
+    flex: 1,
+  },
+calAddButton: {
+  backgroundColor: '#1a1a1a',
+  paddingVertical: 15,
+  borderRadius: 12,
+  alignItems: 'center',
+  marginTop: 20,
+  },
+calAddText: {
+  color: '#ffffff',
+  fontSize: 16,
+  fontWeight: '600',
   },
   summaryTitle: {
     fontSize: 18,
